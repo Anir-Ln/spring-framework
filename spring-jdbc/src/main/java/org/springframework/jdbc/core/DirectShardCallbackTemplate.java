@@ -1,12 +1,15 @@
 package org.springframework.jdbc.core;
 
 import java.lang.reflect.UndeclaredThrowableException;
+import java.sql.SQLException;
 import java.sql.ShardingKey;
 
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.jdbc.datasource.ShardingKeyDataSourceAdapter;
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
+
+import javax.sql.DataSource;
 
 /**
  * Template class that simplifies direct JDBC operations execution on database shards.
@@ -33,7 +36,7 @@ import org.springframework.util.Assert;
  *
  * @author Mohamed Lahyane (Anir)
  * @see #execute
- * @see #setShardingKeyDataSourceAdapter
+ * @see #setDataSource(DataSource)
  * @see ShardingKeyDataSourceAdapter
  */
 public class DirectShardCallbackTemplate implements DirectShardOperations, InitializingBean {
@@ -43,25 +46,34 @@ public class DirectShardCallbackTemplate implements DirectShardOperations, Initi
 	/**
 	 * Construct a new {@code DirectShardCallbackTemplate} for bean usage.
 	 * <p>Note: The ShardingKeyDataSourceAdapter needs to be set before using the instance
-	 * @see #setShardingKeyDataSourceAdapter
+	 * @see #setDataSource 
 	 */
 	public DirectShardCallbackTemplate() {
 	}
 
 	/**
 	 * Construct a new {@code DirectShardCallbackTemplate}, given a ShardingKeyDataSourceAdapter.
-	 * @param shardingKeyDataSourceAdapter the ShardingKey datasource adapter to be used.
+	 * @param dataSource the ShardingKey datasource adapter to be used.
 	 */
-	public DirectShardCallbackTemplate(ShardingKeyDataSourceAdapter shardingKeyDataSourceAdapter) {
-		setShardingKeyDataSourceAdapter(shardingKeyDataSourceAdapter);
+	public DirectShardCallbackTemplate(DataSource dataSource) {
+		setDataSource(dataSource);
 	}
+
 
 	/**
 	 * Set the ShardingKeyDataSourceAdapter to be used
-	 * @param shardingKeyDataSourceAdapter the ShardingKey datasource adapter to be used.
+	 * @param dataSource the ShardingKey datasource adapter to be used.
 	 */
-	public void setShardingKeyDataSourceAdapter(ShardingKeyDataSourceAdapter shardingKeyDataSourceAdapter) {
-		this.shardingKeyDataSourceAdapter = shardingKeyDataSourceAdapter;
+	public void setDataSource(DataSource dataSource) {
+		if (!(dataSource instanceof ShardingKeyDataSourceAdapter)) {
+			try {
+				this.shardingKeyDataSourceAdapter = dataSource.unwrap(ShardingKeyDataSourceAdapter.class);
+			} catch (SQLException e) {
+				throw new RuntimeException(e);
+			}
+		} else {
+			this.shardingKeyDataSourceAdapter = (ShardingKeyDataSourceAdapter) dataSource;
+		}
 		afterPropertiesSet();
 	}
 
