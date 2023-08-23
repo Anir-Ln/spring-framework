@@ -35,9 +35,9 @@ import org.springframework.lang.Nullable;
  */
 public class ShardingKeyDataSourceAdapter extends DelegatingDataSource {
 
-	private final ThreadLocal<ShardingKey> threadBoundShardingKey =
+	private static final ThreadLocal<ShardingKey> threadBoundShardingKey =
 			new NamedThreadLocal<>("Current Sharding key");
-	private final ThreadLocal<ShardingKey> threadBoundSuperShardingKey =
+	private static final ThreadLocal<ShardingKey> threadBoundSuperShardingKey =
 			new NamedThreadLocal<>("Current Super Sharding key");
 
 	@Nullable
@@ -69,8 +69,8 @@ public class ShardingKeyDataSourceAdapter extends DelegatingDataSource {
 	 * @param shardingKey the sharding key to apply.
 	 * @see #removeShardingKeyFromCurrentThread()
 	 */
-	public void setShardingKeyForCurrentThread(ShardingKey shardingKey) {
-		this.threadBoundShardingKey.set(shardingKey);
+	public static void setShardingKeyForCurrentThread(ShardingKey shardingKey) {
+		threadBoundShardingKey.set(shardingKey);
 	}
 
 	/**
@@ -79,24 +79,24 @@ public class ShardingKeyDataSourceAdapter extends DelegatingDataSource {
 	 * @param superShardingKey the super sharding key to apply.
 	 * @see #setShardingKeyForCurrentThread
 	 */
-	public void setSuperShardingKeyForCurrentThread(ShardingKey superShardingKey) {
-		this.threadBoundSuperShardingKey.set(superShardingKey);
+	public static void setSuperShardingKeyForCurrentThread(ShardingKey superShardingKey) {
+		threadBoundSuperShardingKey.set(superShardingKey);
 	}
 
 	/**
 	 * Removes any {@code ShardingKey} for this proxy from the current thread.
 	 * @see #setShardingKeyForCurrentThread
 	 */
-	public void removeShardingKeyFromCurrentThread() {
-		this.threadBoundShardingKey.remove();
+	public static void removeShardingKeyFromCurrentThread() {
+		threadBoundShardingKey.remove();
 	}
 
 	/**
 	 * Removes any super sharding key for this proxy from the current thread.
 	 * @see #setSuperShardingKeyForCurrentThread
 	 */
-	public void removeSuperShardingKeyFromCurrentThread() {
-		this.threadBoundSuperShardingKey.remove();
+	public static void removeSuperShardingKeyFromCurrentThread() {
+		threadBoundSuperShardingKey.remove();
 	}
 
 	/**
@@ -104,7 +104,7 @@ public class ShardingKeyDataSourceAdapter extends DelegatingDataSource {
 	 * @see #setShardingKeyForCurrentThread
 	 * @see #setSuperShardingKeyForCurrentThread
 	 */
-	public void clearShardingKeysFromCurrentThread() {
+	public static void clearShardingKeysFromCurrentThread() {
 		removeShardingKeyFromCurrentThread();
 		removeSuperShardingKeyFromCurrentThread();
 	}
@@ -150,8 +150,8 @@ public class ShardingKeyDataSourceAdapter extends DelegatingDataSource {
 	public ConnectionBuilder createConnectionBuilder() throws SQLException {
 		ConnectionBuilder connectionBuilder = obtainTargetDataSource().createConnectionBuilder();
 
-		ShardingKey shardingKey = this.threadBoundShardingKey.get();
-		ShardingKey superShardingKey = this.threadBoundSuperShardingKey.get();
+		ShardingKey shardingKey = threadBoundShardingKey.get();
+		ShardingKey superShardingKey = threadBoundSuperShardingKey.get();
 
 		if (shardingKey == null && shardingkeyProvider != null) {
 			shardingKey = shardingkeyProvider.getShardingKey();
@@ -179,8 +179,8 @@ public class ShardingKeyDataSourceAdapter extends DelegatingDataSource {
 	 * @return the ShardingKey object representing the sharding key for the current thread, or null if none is bound.
 	 */
 	@Nullable
-	public ShardingKey getShardingKeyForCurrentThread() {
-		return this.threadBoundShardingKey.get();
+	public static ShardingKey getShardingKeyForCurrentThread() {
+		return threadBoundShardingKey.get();
 	}
 
 	/**
@@ -189,7 +189,7 @@ public class ShardingKeyDataSourceAdapter extends DelegatingDataSource {
 	 * @return the ShardingKey object representing the super sharding key for the current thread, or null if none is bound.
 	 */
 	@Nullable
-	public ShardingKey getSuperShardingKeyForCurrentThread() {
-		return this.threadBoundSuperShardingKey.get();
+	public static ShardingKey getSuperShardingKeyForCurrentThread() {
+		return threadBoundSuperShardingKey.get();
 	}
 }

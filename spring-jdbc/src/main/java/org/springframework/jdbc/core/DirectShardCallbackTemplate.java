@@ -33,45 +33,17 @@ import org.springframework.util.Assert;
  *
  * @author Mohamed Lahyane (Anir)
  * @see #execute
- * @see #setShardingKeyDataSourceAdapter
  * @see ShardingKeyDataSourceAdapter
  */
-public class DirectShardCallbackTemplate implements DirectShardOperations, InitializingBean {
-	@Nullable
-	private ShardingKeyDataSourceAdapter shardingKeyDataSourceAdapter;
+public class DirectShardCallbackTemplate implements DirectShardOperations {
 
 	/**
 	 * Construct a new {@code DirectShardCallbackTemplate} for bean usage.
 	 * <p>Note: The ShardingKeyDataSourceAdapter needs to be set before using the instance
-	 * @see #setShardingKeyDataSourceAdapter
 	 */
 	public DirectShardCallbackTemplate() {
 	}
 
-	/**
-	 * Construct a new {@code DirectShardCallbackTemplate}, given a ShardingKeyDataSourceAdapter.
-	 * @param shardingKeyDataSourceAdapter the ShardingKey datasource adapter to be used.
-	 */
-	public DirectShardCallbackTemplate(ShardingKeyDataSourceAdapter shardingKeyDataSourceAdapter) {
-		setShardingKeyDataSourceAdapter(shardingKeyDataSourceAdapter);
-	}
-
-	/**
-	 * Set the ShardingKeyDataSourceAdapter to be used
-	 * @param shardingKeyDataSourceAdapter the ShardingKey datasource adapter to be used.
-	 */
-	public void setShardingKeyDataSourceAdapter(ShardingKeyDataSourceAdapter shardingKeyDataSourceAdapter) {
-		this.shardingKeyDataSourceAdapter = shardingKeyDataSourceAdapter;
-		afterPropertiesSet();
-	}
-
-	/**
-	 * Return the ShardingKeyDataSourceAdapter used by this template.
-	 */
-	@Nullable
-	public ShardingKeyDataSourceAdapter getShardingKeyDataSourceAdapter() {
-		return this.shardingKeyDataSourceAdapter;
-	}
 
 	@Override
 	public <T> T execute(ShardingKey shardingKey, DirectShardCallback<T> action) {
@@ -80,11 +52,10 @@ public class DirectShardCallbackTemplate implements DirectShardOperations, Initi
 
 	@Override
 	public <T> T execute(ShardingKey shardingKey, @Nullable ShardingKey superShardingKey, DirectShardCallback<T> action) {
-		Assert.notNull(this.shardingKeyDataSourceAdapter, "No ShardingKeyDataSourceAdapter set");
 		try {
-			this.shardingKeyDataSourceAdapter.setShardingKeyForCurrentThread(shardingKey);
+			ShardingKeyDataSourceAdapter.setShardingKeyForCurrentThread(shardingKey);
 			if (superShardingKey != null) {
-				this.shardingKeyDataSourceAdapter.setSuperShardingKeyForCurrentThread(superShardingKey);
+				ShardingKeyDataSourceAdapter.setSuperShardingKeyForCurrentThread(superShardingKey);
 			}
 			return action.doInShard();
 		}
@@ -95,14 +66,8 @@ public class DirectShardCallbackTemplate implements DirectShardOperations, Initi
 			throw new UndeclaredThrowableException(ex, "ShardingKeyAwareCallback threw undeclared checked exception");
 		}
 		finally {
-			this.shardingKeyDataSourceAdapter.clearShardingKeysFromCurrentThread();
+			ShardingKeyDataSourceAdapter.clearShardingKeysFromCurrentThread();
 		}
 	}
 
-	@Override
-	public void afterPropertiesSet() {
-		if (this.shardingKeyDataSourceAdapter == null) {
-			throw new IllegalArgumentException("Property 'ShardingKeyDataSourceAdapter' is required");
-		}
-	}
 }

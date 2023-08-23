@@ -17,7 +17,7 @@ import static org.mockito.BDDMockito.*;
 public class DirectShardCallbackTemplateTests {
 	private DataSource dataSource = mock();
 	private ShardingKeyDataSourceAdapter dataSourceAdapter = new ShardingKeyDataSourceAdapter(dataSource);
-	private DirectShardCallbackTemplate shardingTemplate = new DirectShardCallbackTemplate(dataSourceAdapter);
+	private DirectShardCallbackTemplate shardingTemplate = new DirectShardCallbackTemplate();
 	private JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSourceAdapter);
 
 	@Test
@@ -27,20 +27,20 @@ public class DirectShardCallbackTemplateTests {
 
 		assertThatThrownBy(
 				() -> shardingTemplate.execute(shardingKey, () -> {
-					assertThat(dataSourceAdapter.getShardingKeyForCurrentThread()).isEqualTo(shardingKey);
+					assertThat(ShardingKeyDataSourceAdapter.getShardingKeyForCurrentThread()).isEqualTo(shardingKey);
 					jdbcTemplate.execute("SELECT * FROM CUSTOMERS");
 				})
 		).isInstanceOf(CannotGetJdbcConnectionException.class);
-		assertThat(dataSourceAdapter.getShardingKeyForCurrentThread()).isNull();
+		assertThat(ShardingKeyDataSourceAdapter.getShardingKeyForCurrentThread()).isNull();
 	}
 
 	@Test
 	public void testDirectShardRoutingIsSupported() {
 		ShardingKey shardingKey = mock();
 		shardingTemplate.execute(shardingKey, () -> {
-			assertThat(dataSourceAdapter.getShardingKeyForCurrentThread()).isEqualTo(shardingKey);
+			assertThat(ShardingKeyDataSourceAdapter.getShardingKeyForCurrentThread()).isEqualTo(shardingKey);
 			return null;
 		});
-		assertThat(dataSourceAdapter.getShardingKeyForCurrentThread()).isNull();
+		assertThat(ShardingKeyDataSourceAdapter.getShardingKeyForCurrentThread()).isNull();
 	}
 }
