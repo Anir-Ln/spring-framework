@@ -16,9 +16,8 @@
 
 package org.springframework.jdbc.datasource;
 
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.sql.Statement;
+import java.sql.*;
+import java.util.Set;
 
 import javax.sql.DataSource;
 
@@ -28,6 +27,7 @@ import org.apache.commons.logging.LogFactory;
 import org.springframework.jdbc.CannotGetJdbcConnectionException;
 import org.springframework.lang.Nullable;
 import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.TransactionException;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.Assert;
@@ -110,7 +110,38 @@ public abstract class DataSourceUtils {
 				logger.debug("Fetching resumed JDBC Connection from DataSource");
 				conHolder.setConnection(fetchConnection(dataSource));
 			}
-			return conHolder.getConnection();
+
+			Connection connection = conHolder.getConnection();
+
+			/* check if  {@code ShardingKeyDataSourceAdapter} is used => prevent cross shard transaction. */
+			if (dataSource.isWrapperFor(ShardingKeyDataSourceAdapter.class)) {
+				ShardingKeyDataSourceAdapter adapter = dataSource.unwrap(ShardingKeyDataSourceAdapter.class);
+				try {
+					// todo: can we remember the sharding key used in the first connection request for the tx ?
+					ShardingKey shardingKey = adapter.getShardingKeyForCurrentThread();
+					ShardingKey superShardingkey = adapter.getSuperShardingKeyForCurrentThread();
+
+					Set<ShardingKey> currentTxUsedShardingKeys = TransactionSynchronizationManager.getCurrentTransactionUsedShardingKeys();
+					// if this sharding key is already used in this tx, no need to check with setShardingKey
+					if (!currentTxUsedShardingKeys.contains(shardingKey)) {
+						// todo: is there another way to check for cross-shard tx?
+						// `setShardingKey` will be called to every query in the tx, if the used dataSource is ShardingKeyDataSourceAdapter.
+						if (superShardingkey != null) {
+							connection.setShardingKey(shardingKey, superShardingkey);
+						} else {
+							connection.setShardingKey(shardingKey);
+						}
+					}
+
+					currentTxUsedShardingKeys.add(shardingKey);
+				} catch (SQLException ex) {
+					throw new RuntimeException
+					("ShardingKeyDataSourceAdapter supports only single shard transactions!");
+				}
+			}
+
+			return connection;
+
 		}
 		// Else we either got no holder or an empty thread-bound holder here.
 

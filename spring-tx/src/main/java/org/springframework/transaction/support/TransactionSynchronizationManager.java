@@ -16,6 +16,7 @@
 
 package org.springframework.transaction.support;
 
+import java.sql.ShardingKey;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -90,6 +91,9 @@ public abstract class TransactionSynchronizationManager {
 
 	private static final ThreadLocal<Boolean> actualTransactionActive =
 			new NamedThreadLocal<>("Actual transaction active");
+
+	private static final ThreadLocal<Set<ShardingKey>> currentTransactionUsedShardingKeys =
+			new NamedThreadLocal<>("list of the used sharding keys on the current tx belonging to the same shard");
 
 
 	//-------------------------------------------------------------------------
@@ -438,6 +442,14 @@ public abstract class TransactionSynchronizationManager {
 	}
 
 
+	public static Set<ShardingKey> getCurrentTransactionUsedShardingKeys() {
+		return currentTransactionUsedShardingKeys.get();
+	}
+
+	public static void setCurrentTransactionUsedShardingKeys(Set<ShardingKey> keys) {
+		currentTransactionUsedShardingKeys.set(keys);
+	}
+
 	/**
 	 * Clear the entire transaction synchronization state for the current thread:
 	 * registered synchronizations as well as the various transaction characteristics.
@@ -453,6 +465,7 @@ public abstract class TransactionSynchronizationManager {
 		currentTransactionReadOnly.remove();
 		currentTransactionIsolationLevel.remove();
 		actualTransactionActive.remove();
+		currentTransactionUsedShardingKeys.remove();
 	}
 
 }

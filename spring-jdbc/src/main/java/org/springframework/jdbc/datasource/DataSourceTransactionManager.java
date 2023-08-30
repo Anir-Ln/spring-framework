@@ -18,7 +18,10 @@ package org.springframework.jdbc.datasource;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.sql.ShardingKey;
 import java.sql.Statement;
+import java.util.HashSet;
+import java.util.Set;
 
 import javax.sql.DataSource;
 
@@ -27,11 +30,7 @@ import org.springframework.lang.Nullable;
 import org.springframework.transaction.CannotCreateTransactionException;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.TransactionSystemException;
-import org.springframework.transaction.support.AbstractPlatformTransactionManager;
-import org.springframework.transaction.support.DefaultTransactionStatus;
-import org.springframework.transaction.support.ResourceTransactionManager;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-import org.springframework.transaction.support.TransactionSynchronizationUtils;
+import org.springframework.transaction.support.*;
 import org.springframework.util.Assert;
 
 /**
@@ -266,7 +265,19 @@ public class DataSourceTransactionManager extends AbstractPlatformTransactionMan
 		try {
 			if (!txObject.hasConnectionHolder() ||
 					txObject.getConnectionHolder().isSynchronizedWithTransaction()) {
-				Connection newCon = obtainDataSource().getConnection();
+				DataSource ds = obtainDataSource();
+
+				if (ds.isWrapperFor(ShardingKeyDataSourceAdapter.class)) {
+					ShardingKeyDataSourceAdapter shardingKeyDataSourceAdapter = ds.unwrap(ShardingKeyDataSourceAdapter.class);
+					ShardingKey shardingKey = shardingKeyDataSourceAdapter.getShardingKeyForCurrentThread();
+					Set<ShardingKey> set = new HashSet<>();
+					set.add(shardingKey);
+					TransactionSynchronizationManager.setCurrentTransactionUsedShardingKeys(
+							set
+					);
+				}
+
+				Connection newCon = ds.getConnection();
 				if (logger.isDebugEnabled()) {
 					logger.debug("Acquired Connection [" + newCon + "] for JDBC transaction");
 				}

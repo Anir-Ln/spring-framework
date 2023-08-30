@@ -16,16 +16,22 @@
 
 package org.springframework.jdbc.datasource;
 
+import java.sql.Connection;
 import java.sql.SQLException;
+import java.sql.ShardingKey;
 
 import javax.sql.DataSource;
 
 import org.junit.jupiter.api.Test;
 
 import org.springframework.jdbc.CannotGetJdbcConnectionException;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.support.JdbcTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.BDDMockito.when;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.*;
 import static org.mockito.Mockito.mock;
 
 /**
@@ -57,5 +63,31 @@ class DataSourceUtilsTests {
 				.hasMessage("my dummy exception");
 	}
 
+	@Test
+	void testCrossShardTransactionWithShardingKeyDataSourceAdapterThrowsException() throws SQLException {
+		Connection connection = mock();
+		ShardingKey shardingKey = mock();
+		ShardingKey differentShardingKey = mock();
+
+		ShardingKeyDataSourceAdapter shardingKeyDataSource = mock();
+
+		// call real methods
+		when(shardingKeyDataSource.unwrap(any())).thenCallRealMethod();
+		when(shardingKeyDataSource.isWrapperFor(any())).thenCallRealMethod();
+
+		// mocks
+		when(shardingKeyDataSource.getShardingKeyForCurrentThread()).thenReturn(shardingKey).thenReturn(differentShardingKey);
+		given(shardingKeyDataSource.getSuperShardingKeyForCurrentThread()).willReturn(null);
+		given(shardingKeyDataSource.getConnection()).willReturn(connection);
+		doThrow(SQLException.class).when(connection).setShardingKey(differentShardingKey);
+
+		JdbcTransactionManager txManager = new JdbcTransactionManager(shardingKeyDataSource);
+		TransactionTemplate txTemplate = new TransactionTemplate(txManager);
+
+		txTemplate.execute(status -> {
+			assertThatThrownBy(() -> DataSourceUtils.getConnection(shardingKeyDataSource)).isInstanceOf(RuntimeException.class);
+			return null;
+		});
+	}
 }
 
